@@ -41,12 +41,37 @@
     }
   }
 
+  // Switch theme in one clean step: transitions are paused for a frame so
+  // backgrounds, cards and glows don't fade at different speeds.
+  // The arc glow at the bottom of the top section fades into the color of the
+  // section below it, so there is no visible edge between them.
+  function matchHeroFade() {
+    var hero = document.querySelector('.hero-v2, .page-hero');
+    if (!hero) return;
+    var next = hero.nextElementSibling;
+    while (next && next.offsetHeight === 0) next = next.nextElementSibling;
+    var bg = next ? getComputedStyle(next).backgroundColor : '';
+    if (!bg || bg === 'transparent' || bg === 'rgba(0, 0, 0, 0)') bg = getComputedStyle(document.body).backgroundColor;
+    hero.style.setProperty('--hero-fade', bg);
+  }
+  matchHeroFade();
+
+  function applyTheme(theme) {
+    root.classList.add('theme-switching');
+    root.setAttribute('data-theme', theme);
+    void root.offsetWidth; // apply the new colors before transitions come back
+    matchHeroFade();
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { root.classList.remove('theme-switching'); });
+    });
+  }
+
   if (toggle) {
     syncToggle(currentTheme());
     syncTurnstileTheme(currentTheme());
     toggle.addEventListener('click', function () {
       var next = currentTheme() === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', next);
+      applyTheme(next);
       try { localStorage.setItem('gsd-theme', next); } catch (e) {}
       syncToggle(next);
       syncTurnstileTheme(next);
@@ -61,7 +86,7 @@
       try { stored = localStorage.getItem('gsd-theme'); } catch (e2) {}
       if (stored) return;
       var sys = e.matches ? 'dark' : 'light';
-      root.setAttribute('data-theme', sys);
+      applyTheme(sys);
       syncToggle(sys);
       syncTurnstileTheme(sys);
     });
