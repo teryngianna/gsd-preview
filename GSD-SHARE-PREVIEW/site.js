@@ -304,23 +304,26 @@
 })();
 
 // ─── Stat count-up ───
-// Numbers in .stat-number count up once, the first time they scroll into view.
-// The real number is in the page from the start (for search engines, screen
-// readers, and visitors without JavaScript); this only animates it visually.
+// Each .stat-number holds the real text twice: a .sr-only copy for screen readers,
+// and an aria-hidden copy that animates. Only the hidden copy is rewritten, so a
+// screen reader never hears a partial number. Plays once, the first time a tile
+// scrolls into view; skipped for people who turn off animations.
 (function () {
   if (!('IntersectionObserver' in window)) return;
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var els = Array.prototype.slice.call(document.querySelectorAll('.stat-number'));
+  var els = Array.prototype.slice.call(document.querySelectorAll('.stat-number [aria-hidden="true"]'));
   els.forEach(function (el) {
     var text = el.textContent;
-    var m = text.match(/\d[\d,]*/);
+    var m = text.match(/\d[\d,]*(\.\d+)?/);
     if (!m) return;
-    var target = parseInt(m[0].replace(/,/g, ''), 10);
-    if (!target) return; // "0 outages" stays as it is
+    var target = parseFloat(m[0].replace(/,/g, ''));
+    if (!target) return;
+    var decimals = m[1] ? m[1].length - 1 : 0;
     var hasComma = m[0].indexOf(',') !== -1;
     var before = text.slice(0, m.index), after = text.slice(m.index + m[0].length);
-    var fmt = function (n) { return hasComma ? n.toLocaleString('en-US') : String(n); };
-    el.setAttribute('aria-label', text.trim());
+    var fmt = function (n) {
+      return hasComma ? Math.round(n).toLocaleString('en-US') : n.toFixed(decimals);
+    };
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
         if (!entry.isIntersecting) return;
@@ -330,7 +333,7 @@
           if (start === null) start = ts;
           var p = Math.min((ts - start) / dur, 1);
           var eased = 1 - Math.pow(1 - p, 3);
-          el.textContent = before + fmt(Math.round(target * eased)) + after;
+          el.textContent = before + fmt(target * eased) + after;
           if (p < 1) requestAnimationFrame(step); else el.textContent = text;
         }
         requestAnimationFrame(step);
